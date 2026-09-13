@@ -1,0 +1,15 @@
+{
+  "name": "espiao-do-edital",
+  "version": "1.0.0",
+  "description": "Robô de WhatsApp com IA para análise de editais de licitação",
+  "main": "api/index.js",
+  "scripts": {
+    "start": "node api/index.js"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.21.0",
+    "exceljs": "^4.4.0",
+    "pdf-parse": "^1.1.1",
+    "axios": "^1.7.0"
+  }
+}
