@@ -1,17 +1,40 @@
 const axios = require('axios');
 
-module.exports = async (req, res) => {
-    // Verifica se o WhatsApp está enviando dados (POST)
-    if (req.method === 'POST') {
-        const body = req.body;
-        
-        // Mostra no sistema a mensagem que chegou do celular
-        console.log("Mensagem recebida do WhatsApp:", JSON.stringify(body));
+async function enviarAlertaWhatsApp(numeroCliente, textoMensagem) {
+  const URL_EVOLUTION = "https://onrender.com";
+  const API_KEY_SEGURANCA = "SenhaSecretaDoEspiao123";
 
-        // Resposta obrigatória para o WhatsApp saber que deu tudo certo
-        return res.status(200).json({ status: "success", message: "Espião do Edital ativo!" });
+  const payload = {
+    number: numeroCliente,
+    options: {
+      delay: 1200,
+      presence: "composing"
+    },
+    textMessage: {
+      text: textoMensagem
     }
+  };
 
-    // Se alguém tentar abrir o link pelo navegador normal
-    res.status(200).send('API do Espião do Edital rodando com sucesso na Vercel!');
+  try {
+    const response = await axios.post(URL_EVOLUTION, payload, {
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': API_KEY_SEGURANCA
+      }
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Erro no WhatsApp:", error.message);
+  }
+}
+
+module.exports = async (req, res) => {
+  if (req.method === 'POST') {
+    const constBody = req.body;
+    if (constBody.numero && constBody.texto) {
+        await enviarAlertaWhatsApp(constBody.numero, constBody.texto);
+    }
+    return res.status(200).json({ status: "success" });
+  }
+  res.status(200).send('API do Espiao do Edital rodando!');
 };
