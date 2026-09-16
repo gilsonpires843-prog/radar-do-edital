@@ -1,65 +1,107 @@
-
 const axios = require('axios');
 
-// ⚠️ ATENÇÃO: Substitua pelo link completo da sua Evolution API que está no Render
-// Exemplo: "https://onrender.com"
-const URL_EVOLUTION = "https://onrender.com";
-const API_KEY_SEGURANCA = "SenhaSecretaDoEspiao123";
+const URL_EVOLUTION = process.env.EVOLUTION_URL; 
+const API_KEY_SEGURANCA = process.env.EVOLUTION_API_KEY;
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY; 
 
 async function enviarAlertaWhatsApp(numeroCliente, textoMensagem) {
+    if (!URL_EVOLUTION || !API_KEY_SEGURANCA) {
+        console.error("Erro: Configure as variaveis no painel do Render.");
+        return;
+    }
     const payload = {
         number: numeroCliente,
-        options: {
-            delay: 1200,
-            presence: "composing"
-        },
-        textMessage: {
-            text: textoMensagem
-        }
+        options: { delay: 1200, presence: "composing" },
+        textMessage: { text: textoMensagem }
     };
-
     try {
-        const response = await axios.post(URL_EVOLUTION, payload, {
-            headers: {
-                'Content-Type': 'application/json',
-                'apikey': API_KEY_SEGURANCA
-            }
+        await axios.post(URL_EVOLUTION, payload, {
+            headers: { 'Content-Type': 'application/json', 'apikey': API_KEY_SEGURANCA }
         });
-        return response.data;
     } catch (error) {
-        console.error("Erro no WhatsApp:", error.message);
+        console.error("Erro ao enviar resposta:", error.message);
     }
 }
 
-// Essa função simula o cálculo da Planilha do Rodolpho dos Anjos antes de enviar o arquivo
-function calcularComposicaoPreco(custoItem, freteItem, impostoPorcentagem, lucroDesejadoPorcentagem) {
+async function extrairDadosComIA(textoUsuario) {
+    try {
+        const parte1 = "https://api.";
+        const parte2 = "://openai.com";
+        const urlFinal = parte1 + parte2;
+
+        const response = await axios.post(urlFinal, {
+            model: "gpt-4o-mini",
+            messages: [
+                {
+                    role: "system",
+                    content: "Voce e um assistente de licitacoes. Extraia os valores do texto/audio e retorne APENAS um JSON no formato: {\"custo\": 0, \"frete\": 0, \"salario\": 0, \"beneficios\": 0, \"imposto\": 0, \"lucro\": 0}."
+                },
+                { role: "user", content: textoUsuario }
+            ],
+            response_format: { type: "json_object" }
+        }, {
+            headers: { 'Authorization': Bearer ${OPENAI_API_KEY}, 'Content-Type': 'application/json' }
+        });
+        return JSON.parse(response.data.choices.message.content);
+    } catch (error) {
+        return null;
+    }
+}
+function calcularPlanilhaUnificada(custoProduto, freteLogistica, salarioMaoObra, beneficiosTrabalhistas, impostoPorcentagem, lucroDesejadoPorcentagem) {
+    let custoTotalMaoObra = 0;
+    if (salarioMaoObra > 0) {
+        const encargosSociais = salarioMaoObra * 0.80;
+        custoTotalMaoObra = salarioMaoObra + encargosSociais + beneficiosTrabalhistas;
+    }
+    const custoBaseTotal = custoProduto + freteLogistica + custoTotalMaoObra;
     const imposto = impostoPorcentagem / 100;
     const lucro = lucroDesejadoPorcentagem / 100;
     
-    // Fórmula matemática de formação de preço de venda (Markup/Preço Base)
-    const precoVenda = (custoItem + freteItem) / (1 - imposto - lucro);
-    return precoVenda.toFixed(2);
+    const precoVendaFinal = custoBaseTotal / (1 - imposto - lucro);
+    return precoVendaFinal.toFixed(2);
 }
 
 module.exports = async (req, res) => {
     if (req.method === 'POST') {
         const constBody = req.body;
 
-        // Se receber número e texto, roda o comportamento padrão do Radar/Espião
         if (constBody.numero && constBody.texto) {
-            
-            // Lógica Nova: Se o texto contiver o comando de calcular preço
-            if (constBody.texto.includes("calcular preço")) {
-                // Aqui o robô avisa que vai iniciar a Planilha de Composição de Preço
-                const mensagemPreco = "📋 *Radar do Edital - Composição de Preços*\n\nIniciando o simulador estilo Rodolpho dos Anjos para você não ser desclassificado! Me envie o custo do produto.";
-                await enviarAlertaWhatsApp(constBody.numero, mensagemPreco);
+            const comando = constBody.texto.toLowerCase();
+
+            if (comando.includes("calcular")  comando.includes("planilha")  comando.includes("preco")) {
+                
+                await enviarAlertaWhatsApp(constBody.numero, "🤖 Calculando dados da sua planilha unificada...");
+
+                const dados = await extrairDadosComIA(constBody.texto);
+
+                if (dados) {
+                    const precoIdeal = calcularPlanilhaUnificada(
+                        dados.custo, dados.frete, dados.salario, dados.beneficios, dados.imposto, dados.lucro
+                    );
+
+                    let respostaCalculada = '📋 *PLANILHA UNIFICADA GERADA*\n\n';
+                    respostaCalculada += '📦 *Insumos (Rodolpho dos Anjos):*\n';
+                    respostaCalculada += '• Custo Fabrica: R$ ' + dados.custo.toFixed(2) + '\n';
+                    respostaCalculada += '• Frete/Logistica: R$ ' + dados.frete.toFixed(2) + '\n\n';
+                    respostaCalculada += '👥 *Mao de Obra (Pedro Carnevale):*\n';
+                    respostaCalculada += '• Salario Base: R$ ' + dados.salario.toFixed(2) + '\n';
+                    respostaCalculada += '• Encargos Sociais (80%): Incluso\n';
+                    respostaCalculada += '• Beneficios (VT/VR): R$ ' + dados.beneficios.toFixed(2) + '\n\n';
+                    respostaCalculada += '📈 *Impostos e Margem:*\n';
+                    respostaCalculada += '• Imposto: ' + dados.imposto + '%\n';
+                    respostaCalculada += '• Lucro Desejado: ' + dados.lucro + '%\n\n';
+                    respostaCalculada += '💰 *PRECO MINIMO PARA O PREGAO:*\n';
+                    respostaCalculada += '👉 *R$ ' + precoIdeal + '*';
+
+                    await enviarAlertaWhatsApp(constBody.numero, respostaCalculada);
+                } else {
+                    await enviarAlertaWhatsApp(constBody.numero, "❌ Nao consegui processar os valores informados.");
+                }
             } else {
-                // Se for um edital comum achado na internet, envia o alerta normal do Espião
                 await enviarAlertaWhatsApp(constBody.numero, constBody.texto);
             }
         }
         return res.status(200).json({ status: "sucesso" });
     }
-    
-    res.status(200).send('API do Radar do Edital rodando perfeitamente!');
+    res.status(200).send('Servidor Ativo!');
 };
