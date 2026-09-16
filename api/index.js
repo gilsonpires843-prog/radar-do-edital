@@ -40,7 +40,15 @@ async function extrairDadosComIA(textoUsuario) {
             ],
             response_format: { type: "json_object" }
         }, {
-            headers: { 'Authorization': Bearer ${OPENAI_API_KEY}, 'Content-Type': 'application/json' }
+            headers: {}, {
+        headers: { 'Authorization': Bearer ${OPENAI_API_KEY} }
+    });
+
+    return JSON.parse(response.data.choices.message.content);}
+        headers: { 'Authorization': Bearer ${OPENAI_API_KEY} }
+    });
+
+    return JSON.parse(response.data.choices[0].message.content);}  
         });
         return JSON.parse(response.data.choices.message.content);
     } catch (error) {
