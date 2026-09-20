@@ -1,4 +1,5 @@
-const axios = require('axios');
+
+  const axios = require('axios');
 
 const URL_EVOLUTION = process.env.EVOLUTION_URL; 
 const API_KEY_SEGURANCA = process.env.EVOLUTION_API_KEY;
@@ -25,9 +26,7 @@ async function enviarAlertaWhatsApp(numeroCliente, textoMensagem) {
 
 async function extrairDadosComIA(textoUsuario) {
     try {
-        const parte1 = "https://api.";
-        const parte2 = "://openai.com";
-        const urlFinal = parte1 + parte2;
+        const urlFinal = "https://openai.com";
 
         const response = await axios.post(urlFinal, {
             model: "gpt-4o-mini",
@@ -40,21 +39,19 @@ async function extrairDadosComIA(textoUsuario) {
             ],
             response_format: { type: "json_object" }
         }, {
-            headers: {}, {
-        headers: { 'Authorization': Bearer ${OPENAI_API_KEY} }
-    });
-
-    return JSON.parse(response.data.choices.message.content);}
-        headers: { 'Authorization': Bearer ${OPENAI_API_KEY} }
-    });
-
-    return JSON.parse(response.data.choices[0].message.content);}  
+            headers: { 
+                'Authorization': `Bearer ${OPENAI_API_KEY}`,
+                'Content-Type': 'application/json'
+            }
         });
-        return JSON.parse(response.data.choices.message.content);
+
+        return JSON.parse(response.data.choices[0].message.content);
     } catch (error) {
+        console.error("Erro na OpenAI:", error.message);
         return null;
     }
 }
+
 function calcularPlanilhaUnificada(custoProduto, freteLogistica, salarioMaoObra, beneficiosTrabalhistas, impostoPorcentagem, lucroDesejadoPorcentagem) {
     let custoTotalMaoObra = 0;
     if (salarioMaoObra > 0) {
@@ -64,6 +61,11 @@ function calcularPlanilhaUnificada(custoProduto, freteLogistica, salarioMaoObra,
     const custoBaseTotal = custoProduto + freteLogistica + custoTotalMaoObra;
     const imposto = impostoPorcentagem / 100;
     const lucro = lucroDesejadoPorcentagem / 100;
+    
+    // Evita divisão por zero ou valores negativos na fórmula de markup
+    if ((1 - imposto - lucro) <= 0) {
+        return "Erro (Imposto/Lucro muito altos)";
+    }
     
     const precoVendaFinal = custoBaseTotal / (1 - imposto - lucro);
     return precoVendaFinal.toFixed(2);
@@ -76,7 +78,8 @@ module.exports = async (req, res) => {
         if (constBody.numero && constBody.texto) {
             const comando = constBody.texto.toLowerCase();
 
-            if (comando.includes("calcular")  comando.includes("planilha")  comando.includes("preco")) {
+            // Corrigido: usando os operadores lógicos corretos || (OU)
+            if (comando.includes("calcular") || comando.includes("planilha") || comando.includes("preco")) {
                 
                 await enviarAlertaWhatsApp(constBody.numero, "🤖 Calculando dados da sua planilha unificada...");
 
@@ -84,22 +87,27 @@ module.exports = async (req, res) => {
 
                 if (dados) {
                     const precoIdeal = calcularPlanilhaUnificada(
-                        dados.custo, dados.frete, dados.salario, dados.beneficios, dados.imposto, dados.lucro
+                        dados.custo || 0, 
+                        dados.frete || 0, 
+                        dados.salario || 0, 
+                        dados.beneficios || 0, 
+                        dados.imposto || 0, 
+                        dados.lucro || 0
                     );
 
                     let respostaCalculada = '📋 *PLANILHA UNIFICADA GERADA*\n\n';
                     respostaCalculada += '📦 *Insumos (Rodolpho dos Anjos):*\n';
-                    respostaCalculada += '• Custo Fabrica: R$ ' + dados.custo.toFixed(2) + '\n';
-                    respostaCalculada += '• Frete/Logistica: R$ ' + dados.frete.toFixed(2) + '\n\n';
+                    respostaCalculada += '• Custo Fabrica: R\$ ' + (dados.custo || 0).toFixed(2) + '\n';
+                    respostaCalculada += '• Frete/Logistica: R\$ ' + (dados.frete || 0).toFixed(2) + '\n\n';
                     respostaCalculada += '👥 *Mao de Obra (Pedro Carnevale):*\n';
-                    respostaCalculada += '• Salario Base: R$ ' + dados.salario.toFixed(2) + '\n';
+                    respostaCalculada += '• Salario Base: R\$ ' + (dados.salario || 0).toFixed(2) + '\n';
                     respostaCalculada += '• Encargos Sociais (80%): Incluso\n';
-                    respostaCalculada += '• Beneficios (VT/VR): R$ ' + dados.beneficios.toFixed(2) + '\n\n';
+                    respostaCalculada += '• Beneficios (VT/VR): R\$ ' + (dados.beneficios || 0).toFixed(2) + '\n\n';
                     respostaCalculada += '📈 *Impostos e Margem:*\n';
-                    respostaCalculada += '• Imposto: ' + dados.imposto + '%\n';
-                    respostaCalculada += '• Lucro Desejado: ' + dados.lucro + '%\n\n';
+                    respostaCalculada += '• Imposto: ' + (dados.imposto || 0) + '%\n';
+                    respostaCalculada += '• Lucro Desejado: ' + (dados.lucro || 0) + '%\n\n';
                     respostaCalculada += '💰 *PRECO MINIMO PARA O PREGAO:*\n';
-                    respostaCalculada += '👉 *R$ ' + precoIdeal + '*';
+                    respostaCalculada += '👉 *R\$ ' + precoIdeal + '*';
 
                     await enviarAlertaWhatsApp(constBody.numero, respostaCalculada);
                 } else {
